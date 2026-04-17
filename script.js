@@ -88,12 +88,16 @@ function renderGrid() {
     filtered.forEach(item => {
         const card = document.createElement('div');
         card.className = 'card';
+        // Traduction des statuts pour l'UI
+        const statusText = item.status === 'watching' ? `Épisode ${item.tracking.episode}` : 
+                          item.status === 'watchlist' ? 'À VOIR' : 'TERMINÉ';
+
         card.innerHTML = `
             <button class="fav-btn ${item.isFavorite ? 'active' : ''}" onclick="toggleFavorite(${item.id}, event)">❤</button>
             <img src="${IMG_URL + item.poster}" alt="${item.title}">
             <div class="card-info">
+                <span class="status-badge">${statusText}</span>
                 <strong>${item.title}</strong>
-                <p>${item.status === 'watching' ? `S${item.tracking.season} E${item.tracking.episode}` : item.status}</p>
             </div>
         `;
         card.onclick = () => openDetails(item, true);
