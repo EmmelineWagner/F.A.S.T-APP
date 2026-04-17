@@ -1,184 +1,188 @@
-/** * CONFIGURATION : Placez votre clé API TMDB ci-dessous 
+/** * CONFIGURATION : Remplace par ta clé API TMDB
  */
 const API_KEY = 'a41dc0592a165a6fda7e056496a917ee'; 
 const BASE_URL = 'https://api.themoviedb.org/3';
 const IMG_URL = 'https://image.tmdb.org/t/p/w500';
 
-// État de l'application (Database locale)
+// État de l'application
 let myLibrary = JSON.parse(localStorage.getItem('fast_library')) || [];
 let currentFilter = 'all';
 
-// Éléments DOM
+// --- 1. GESTION DU THÈME ---
+const themeToggle = document.getElementById('themeToggle');
+themeToggle.addEventListener('click', () => {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const newTheme = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', newTheme);
+    themeToggle.innerText = newTheme === 'dark' ? '🌓' : '☀️';
+});
+
+// --- 2. RECHERCHE FONCTIONNELLE ---
 const searchInput = document.getElementById('searchInput');
 const searchResults = document.getElementById('searchResults');
-const mainGrid = document.getElementById('mainGrid');
-const modal = document.getElementById('detailsModal');
-const modalBody = document.getElementById('modalBody');
 
-// --- 1. RECHERCHE ---
 searchInput.addEventListener('input', async (e) => {
     const query = e.target.value;
     if (query.length < 3) {
         searchResults.innerHTML = '';
+        searchResults.style.display = 'none';
         return;
     }
 
-    // Recherche multi-supports (Films, Séries, Animés)
-    const resp = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&query=${query}&language=fr-FR`);
-    const data = await resp.json();
-    displaySearchPreview(data.results);
+    try {
+        const resp = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR`);
+        const data = await resp.json();
+        displaySearchResults(data.results);
+    } catch (error) {
+        console.error("Erreur API:", error);
+    }
 });
 
-function displaySearchPreview(results) {
+function displaySearchResults(results) {
     searchResults.innerHTML = '';
-    results.slice(0, 5).forEach(item => {
+    if (!results || results.length === 0) return;
+
+    searchResults.style.display = 'block';
+    
+    results.slice(0, 6).forEach(item => {
+        if (!item.poster_path) return; // Ignore ceux sans image pour le look
+
         const div = document.createElement('div');
-        div.style.padding = '10px';
-        div.style.borderBottom = '1px solid #333';
-        div.style.cursor = 'pointer';
-        div.innerHTML = `<strong>${item.title || item.name}</strong> (${item.media_type})`;
-        div.onclick = () => openDetails(item);
+        div.className = 'search-item';
+        div.innerHTML = `
+            <img src="${IMG_URL + item.poster_path}" style="width: 40px; border-radius: 5px;">
+            <div class="search-item-info">
+                <div style="font-weight: 600; font-size: 0.9rem;">${item.title || item.name}</div>
+                <div style="font-size: 0.7rem; color: #888;">${item.media_type === 'tv' ? 'Série' : 'Film'}</div>
+            </div>
+        `;
+        div.onclick = () => {
+            openDetailedModal(item, false);
+            searchResults.style.display = 'none';
+            searchInput.value = '';
+        };
         searchResults.appendChild(div);
     });
 }
 
-// --- 2. GESTION DE LA BIBLIOTHÈQUE ---
-function addToLibrary(item, status = 'watchlist') {
+// --- 3. GESTION BIBLIOTHÈQUE ---
+function addToLibrary(item, status) {
     const exists = myLibrary.find(m => m.id === item.id);
     if (!exists) {
         myLibrary.push({
             id: item.id,
             title: item.title || item.name,
             poster: item.poster_path,
+            overview: item.overview,
             type: item.media_type || (item.first_air_date ? 'tv' : 'movie'),
             status: status,
             genres: item.genre_ids,
             isFavorite: false,
-            tracking: { season: 1, episode: 1, note: '' }
+            tracking: { season: 1, episode: 1 }
         });
-        saveAndRender();
+    } else {
+        exists.status = status;
     }
-}
-
-function updateStatus(id, newStatus) {
-    const item = myLibrary.find(m => m.id === id);
-    if (item) item.status = newStatus;
     saveAndRender();
 }
 
-function toggleFavorite(id, event) {
-    event.stopPropagation();
-    const item = myLibrary.find(m => m.id === id);
-    if (item) item.isFavorite = !item.isFavorite;
-    saveAndRender();
-}
-
-// --- 3. AFFICHAGE (RENDER) ---
+// --- 4. AFFICHAGE DE LA GRILLE ---
 function renderGrid() {
-    mainGrid.innerHTML = '';
-    let filtered = myLibrary;
+    const grid = document.getElementById('mainGrid');
+    grid.innerHTML = '';
 
-    if (currentFilter === 'ai-rec') {
-        renderAIRecommendations();
-        return;
-    } else if (currentFilter !== 'all') {
-        filtered = myLibrary.filter(m => m.status === currentFilter);
-    }
+    const filtered = currentFilter === 'all' 
+        ? myLibrary 
+        : myLibrary.filter(m => m.status === currentFilter);
 
     filtered.forEach(item => {
         const card = document.createElement('div');
         card.className = 'card';
-        // Traduction des statuts pour l'UI
-        const statusText = item.status === 'watching' ? `Épisode ${item.tracking.episode}` : 
-                          item.status === 'watchlist' ? 'À VOIR' : 'TERMINÉ';
-
         card.innerHTML = `
-            <button class="fav-btn ${item.isFavorite ? 'active' : ''}" onclick="toggleFavorite(${item.id}, event)">❤</button>
             <img src="${IMG_URL + item.poster}" alt="${item.title}">
-            <div class="card-info">
-                <span class="status-badge">${statusText}</span>
-                <strong>${item.title}</strong>
+            <div class="card-overlay">
+                <span class="status-badge" style="color: var(--accent); font-size: 0.7rem; font-weight: 800;">${item.status.toUpperCase()}</span>
+                <strong style="display:block; margin-bottom: 5px;">${item.title}</strong>
+                <p class="overlay-desc">${item.overview || 'Pas de description'}</p>
+                <button class="info-btn">PLUS D'INFOS</button>
             </div>
         `;
-        card.onclick = () => openDetails(item, true);
-        mainGrid.appendChild(card);
+        card.onclick = () => openDetailedModal(item, true);
+        grid.appendChild(card);
     });
 }
 
-// --- 4. MODALE & TRACKING ---
-function openDetails(item, isFromLibrary = false) {
-    const data = isFromLibrary ? item : item;
-    const libItem = myLibrary.find(m => m.id === data.id);
-    
-    modal.style.display = "block";
-    searchResults.innerHTML = '';
-    
-    modalBody.innerHTML = `
-        <div style="display: flex; gap: 20px;">
-            <img src="${IMG_URL + data.poster_path || IMG_URL + data.poster}" style="width: 250px; border-radius: 10px;">
-            <div>
-                <h2>${data.title || data.name}</h2>
-                <p>${data.overview || 'Pas de description disponible.'}</p>
-                
-                <div class="tracking-controls">
-                    <label>Statut :</label>
-                    <select onchange="updateStatus(${data.id}, this.value); addToLibrary(${JSON.stringify(data).replace(/"/g, '&quot;')}, this.value)">
-                        <option value="none">-- Choisir --</option>
-                        <option value="watchlist" ${libItem?.status === 'watchlist' ? 'selected' : ''}>À voir</option>
-                        <option value="watching" ${libItem?.status === 'watching' ? 'selected' : ''}>En cours</option>
-                        <option value="finished" ${libItem?.status === 'finished' ? 'selected' : ''}>Terminé</option>
-                    </select>
+// --- 5. MODALE DÉTAILLÉE ---
+async function openDetailedModal(item, isFromLibrary) {
+    const modal = document.getElementById('detailsModal');
+    const body = document.getElementById('modalBody');
+    modal.style.display = 'block';
 
-                    ${libItem?.status === 'watching' ? `
-                        <div style="margin-top:15px;">
-                            Saison: <input type="number" value="${libItem.tracking.season}" min="1" onchange="updateTracking(${data.id}, 'season', this.value)">
-                            Épisode: <input type="number" value="${libItem.tracking.episode}" min="1" onchange="updateTracking(${data.id}, 'episode', this.value)">
-                        </div>
-                    ` : ''}
+    // On prépare le contenu de base
+    body.innerHTML = `
+        <div style="display: flex; flex-wrap: wrap;">
+            <img src="${IMG_URL + (item.poster_path || item.poster)}" class="modal-poster" style="width: 300px; border-radius: 20px 0 0 20px;">
+            <div class="modal-details" style="padding: 30px; flex: 1;">
+                <h2 style="margin-top:0">${item.title || item.name}</h2>
+                <p style="color: var(--text-dim); font-size: 0.9rem;">${item.overview || 'Aucun résumé disponible.'}</p>
+                
+                <div class="tracking-controls" style="margin-top: 20px;">
+                    <label>Statut : </label>
+                    <select id="statusSelect" onchange="updateItemStatus(${item.id}, this.value, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                        <option value="none">-- Choisir --</option>
+                        <option value="watchlist">À voir</option>
+                        <option value="watching">En cours</option>
+                        <option value="finished">Terminé</option>
+                    </select>
                 </div>
+                <div id="episodeSection" style="margin-top: 20px;"></div>
             </div>
         </div>
     `;
-}
 
-function updateTracking(id, field, value) {
-    const item = myLibrary.find(m => m.id === id);
-    if (item) item.tracking[field] = parseInt(value);
-    saveAndRender();
-}
-
-// --- 5. LOGIQUE IA (RECOMMANDATIONS) ---
-async function renderAIRecommendations() {
-    mainGrid.innerHTML = '<h3>Analyse de vos favoris...</h3>';
-    const favorites = myLibrary.filter(m => m.isFavorite);
-    
-    if (favorites.length === 0) {
-        mainGrid.innerHTML = '<p>Marquez des titres en "Favoris" pour activer l\'IA.</p>';
-        return;
+    // Si c'est une série, on peut aller chercher les épisodes
+    const type = item.media_type === 'tv' || item.type === 'tv';
+    if (type) {
+        fetchEpisodes(item.id, 1); // Saison 1 par défaut pour le test
     }
-
-    // Simple IA Logic: On prend le genre du premier favori pour suggérer
-    const topGenre = favorites[0].genres[0];
-    const resp = await fetch(`${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${topGenre}&language=fr-FR`);
-    const data = await resp.json();
-    
-    mainGrid.innerHTML = '<h3>Parce que vous aimez ' + favorites[0].title + ' :</h3>';
-    data.results.slice(0, 5).forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `<img src="${IMG_URL + item.poster_path}"><div class="card-info"><strong>${item.title}</strong></div>`;
-        card.onclick = () => openDetails(item);
-        mainGrid.appendChild(card);
-    });
 }
 
-// --- UTILITAIRES ---
+async function fetchEpisodes(tvId, seasonNum) {
+    const epSection = document.getElementById('episodeSection');
+    try {
+        const resp = await fetch(`${BASE_URL}/tv/${tvId}/season/${seasonNum}?api_key=${API_KEY}&language=fr-FR`);
+        const data = await resp.json();
+        
+        epSection.innerHTML = `<h4>Épisodes Saison ${seasonNum}</h4><div class="episode-list">`;
+        data.episodes.slice(0, 5).forEach(ep => {
+            epSection.innerHTML += `
+                <div class="episode-card" style="display:flex; gap:10px; margin-bottom:10px; background: rgba(255,255,255,0.05); padding:10px; border-radius:10px;">
+                    <img src="${ep.still_path ? IMG_URL + ep.still_path : 'https://via.placeholder.com/80'}" style="width: 80px; border-radius: 5px;">
+                    <div>
+                        <div style="font-size:0.8rem; font-weight:600;">${ep.episode_number}. ${ep.name}</div>
+                        <button onclick="alert('Épisode marqué !')" style="font-size:0.6rem; background: var(--accent); border:none; border-radius:5px; cursor:pointer;">Marquer vu</button>
+                    </div>
+                </div>
+            `;
+        });
+        epSection.innerHTML += `</div>`;
+    } catch (e) {
+        epSection.innerHTML = "<p>Détails des épisodes non disponibles.</p>";
+    }
+}
+
+function updateItemStatus(id, status, fullItem) {
+    addToLibrary(fullItem, status);
+    renderGrid();
+}
+
 function saveAndRender() {
     localStorage.setItem('fast_library', JSON.stringify(myLibrary));
     renderGrid();
 }
 
-// Navigation par onglets
+// Navigation
 document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         document.querySelector('.nav-btn.active').classList.remove('active');
@@ -188,9 +192,8 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     });
 });
 
-// Fermer modale
-document.querySelector('.close-btn').onclick = () => modal.style.display = "none";
-window.onclick = (e) => { if(e.target == modal) modal.style.display = "none"; }
+// Fermeture modale
+document.querySelector('.close-btn').onclick = () => document.getElementById('detailsModal').style.display = "none";
 
 // Initialisation
 renderGrid();
