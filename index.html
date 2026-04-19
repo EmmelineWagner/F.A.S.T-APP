@@ -3,39 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WatchNest | FAST</title>
+    <title>F.A.S.T. | Expérience Cinéma</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <header>
-        <div class="header-top">
-            <div class="logo" onclick="location.reload()">Watch<span>Nest</span></div>
-            <div class="header-controls">
-                <div class="search-wrapper">
-                    <input type="text" id="searchInput" placeholder="Rechercher..." autocomplete="off">
-                </div>
+<header>
+    <div class="logo-container" onclick="location.reload()">
+        <img src="image.jpg" alt="FAST Logo" class="main-logo">
+    </div>
+
+        <div class="user-zone">
+        <span class="welcome-text">Bonjour, Voyageur</span>
+        <div class="user-profile">
+            <div class="avatar" id="userAvatar">U</div>
+            <div class="dropdown-menu" id="userDropdown">
+                <a href="#"><i class="icon-user"></i> Profil</a>
+                <a href="#"><i class="icon-settings"></i> Paramètres</a>
+                <div class="divider"></div>
+                <a href="#" style="color: #ff4d4d;">Déconnexion</a>
             </div>
         </div>
-    </header>
+    </div>
+</header>
 
-    <nav class="main-nav">
-        <button class="nav-btn active" data-tab="all">Tout</button>
-        <button class="nav-btn" data-tab="watchlist">À voir</button>
-        <button class="nav-btn" data-tab="watching">En cours</button>
-        <button class="nav-btn" data-tab="finished">Terminé</button>
-    </nav>
-
-    <main id="mainGrid" class="media-grid"></main>
-
-    <div id="detailsModal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <div id="modalBody"></div>
+<main>
+    <div class="search-section">
+        <div class="search-main">
+            <input type="text" id="searchInput" placeholder="Rechercher un film, une série ou un animé..." autocomplete="off">
+            <div id="searchResults" class="search-results-floating"></div>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <div id="recommendationsSection" style="display: none;">
+        <h2 class="section-title">✨ Recommandations pour vous</h2>
+        <div id="recommendationsRow" class="row"></div>
+    </div>
+
+    <h2 class="section-title">En cours de visionnage</h2>
+    <div id="watchingRow" class="row">
+        </div>
+
+    <h2 class="section-title">Ma Bibliothèque</h2>
+    <nav class="main-nav">
+        <button class="nav-btn active" data-tab="all">Tout</button>
+        <button class="nav-btn" data-tab="watchlist">À voir</button>
+        <button class="nav-btn" data-tab="finished">Terminé</button>
+    </nav>
+
+    <div id="mainGrid" class="media-grid"></div>
+
+    <h2 class="section-title">Explorer les genres</h2>
+    <div class="themes">
+        <div class="theme-item" onclick="quickSearch('Action')">🔥 Action</div>
+        <div class="theme-item" onclick="quickSearch('Animation')">⛩️ Animé</div>
+        <div class="theme-item" onclick="quickSearch('Science-Fiction')">🚀 Sci-Fi</div>
+        <div class="theme-item" onclick="quickSearch('Horreur')">💀 Horreur</div>
+    </div>
+</main>
+
+<div id="detailsModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
